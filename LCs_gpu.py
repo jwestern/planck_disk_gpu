@@ -262,15 +262,20 @@ for i in range(len(Nchkpts)):
 	sigspeeds = cp.array([abs(vx_code) + cs_code, abs(vy_code) + cs_code])
 	maxspeed  = cp.amax(sigspeeds)
 	dt        = cfl*dx/maxspeed
-	rho       = rho_code * m0/l0**2
-	pres      = pres_code * m0/t0**2
-	kTmid     = pres/rho * mp #midplane kT in units of erg
-	Tmid      = kTmid/kb #midplane T in units of Kelvin
+	del pres_code, eps_code2, cs_code, sigspeeds, maxspeed
 
+	### Cooling in the limit dt -> 0
+	#rho       = rho_code * m0/l0**2
+	#pres      = pres_code * m0/t0**2
+	#kTmid     = pres/rho * mp #midplane kT in units of erg
+	#Tmid      = kTmid/kb #midplane T in units of Kelvin
 	#cooling_one_side     = (4./3) * sigma * Tmid**4 / (rho * kappa) #limit dt->0
+	#del rho, pres, Tmid, kTmid
+
 	eps_code_prime        = eps_code * (1. + 3.*A/rho_code**2 * eps_code**3 *dt)**(-1./3)
 	ek                    = 0.5 * (vx_code**2 + vy_code**2)
 	epsprime_machceiling  = 2.0 * ek / gamma / (gamma - 1.0) / mach_ceiling**2
+	del vx_code, vy_code, ek
 
 	#Apply Mach ceiling
 	bup = cp.where(epsprime_machceiling > eps_code_prime)
@@ -278,14 +283,15 @@ for i in range(len(Nchkpts)):
 
 	cooling_one_side = -rho_code * (eps_code_prime - eps_code) / dt / 2
 	cooling_one_side[cp.where(cooling_one_side<0)] = 0.0
+	del eps_code, eps_code_prime, epsprime_machceiling, bup
 
 	Teff      = (cooling_one_side / sigma_code / Mdot_boost)**0.25
 	Teff[cp.where(Teff==0)] = 1e-16
-	kTeff     = kb*Teff         #kTeff in units of erg
-	kTeffeV   = kTeff*erg_to_eV #kTeff in units of eV
+	del cooling_one_side
 
 	M1dot.append( mass_accretion_rate(x1[-1],y1[-1],rho_code) )
 	M2dot.append( mass_accretion_rate(x2[-1],y2[-1],rho_code) )
+	del rho_code
 
 	lum_resolved_cell_vis  = cp.zeros((N,N))
 	lum_resolved_cell_inf  = cp.zeros((N,N))
@@ -301,29 +307,29 @@ for i in range(len(Nchkpts)):
 	lum_resolved_cell_vis = cp.pi * prefact * (anti_vis1 - anti_vis0)
 	lum_resolved_cell_inf = cp.pi * prefact * (anti_inf1 - anti_vis1)
 	lum_resolved_cell_bol = cp.ones((N,N)) * cp.pi * prefact * cp.pi**4/15
+	del anti_vis0, anti_inf1, anti_vis1, prefact
 
 	buffmask = cp.ones((N,N))
 	buffmask[np.where(rr>DR-buffer_scale)] = 0.0
 	lum_resolved_bol .append( cp.sum(lum_resolved_cell_bol*buffmask )*dx*dx*l0*l0 )
 	lum_resolved_vis .append( cp.sum(lum_resolved_cell_vis*buffmask )*dx*dx*l0*l0 )
 	lum_resolved_inf .append( cp.sum(lum_resolved_cell_inf*buffmask )*dx*dx*l0*l0 )
+	del buffmask
 
 	#Collect emission from vicinity of BH1 and BH2 separately
-	mask_BH1 = Teff*0
-	mask_BH2 = Teff*0
 	rphsq = (rp_code/2)**2 #half pericenter distance squared
-	distance_to_BH1_squared = (x1[-1]-xx)**2 + (y1[-1]-yy)**2
-	distance_to_BH2_squared = (x2[-1]-xx)**2 + (y2[-1]-yy)**2
-	mask_BH1 = distance_to_BH1_squared < rphsq
-	mask_BH2 = distance_to_BH2_squared < rphsq
 
+	mask_BH1 = (x1[-1]-xx)**2 + (y1[-1]-yy)**2 < rphsq
 	lum_BH1_bol .append( cp.sum(lum_resolved_cell_bol *mask_BH1)*dx*dx*l0*l0 )
 	lum_BH1_vis .append( cp.sum(lum_resolved_cell_vis *mask_BH1)*dx*dx*l0*l0 )
 	lum_BH1_inf .append( cp.sum(lum_resolved_cell_inf *mask_BH1)*dx*dx*l0*l0 )
+	del mask_BH1
 
+	mask_BH2 = (x2[-1]-xx)**2 + (y2[-1]-yy)**2 < rphsq
 	lum_BH2_bol .append( cp.sum(lum_resolved_cell_bol *mask_BH2)*dx*dx*l0*l0 )
 	lum_BH2_vis .append( cp.sum(lum_resolved_cell_vis *mask_BH2)*dx*dx*l0*l0 )
 	lum_BH2_inf .append( cp.sum(lum_resolved_cell_inf *mask_BH2)*dx*dx*l0*l0 )
+	del mask_BH2
 
 	cp.save('lum_resolved_vis' ,cp.array(lum_resolved_vis ))
 	cp.save('lum_resolved_inf' ,cp.array(lum_resolved_inf ))
