@@ -38,7 +38,7 @@ def project_along_bhs(vx, vy, x1, y1, x2, y2):
     mag  = np.sqrt(xvec**2 + yvec**2)
     return vx * xvec / mag + vy * yvec / mag
 
-#tested
+#tested on single snapshot.
 #need to compare time series with corotating movie
 def mdot_minidisk_separator(N, length, rho, vx, vy, x1, y1, x2, y2, xx, yy):
     momproj = project_along_bhs(rho*vx, rho*vy, x1, y1, x2, y2)
@@ -52,3 +52,24 @@ def mdot_minidisk_separator(N, length, rho, vx, vy, x1, y1, x2, y2, xx, yy):
     mom_md_p[np.where(mom_md_p<0)] = 0.0
     mom_md_m[np.where(mom_md_m>0)] = 0.0
     return np.trapz(mom_md_p, dx=dx), np.trapz(mom_md_m, dx=dx)
+
+#needs testing, can't do it on a single snapshot.
+#should produce a roughly time-lagged Mdot when computed
+#around a single minidisk.
+def mdot_circle(N, rho, vx, vy, xc, yc, r, xx, yy):
+    xcirc, ycirc = circle(N, xc, yc, r)
+    dx = 2*np.pi*r/(N-1.0)
+    rho_circ = np.array([lines.bilinear_interp(rho, xx, yy, xcirc[i], ycirc[i]) for i in range(N)])
+    vx_circ  = np.array([lines.bilinear_interp( vx, xx, yy, xcirc[i], ycirc[i]) for i in range(N)])
+    vy_circ  = np.array([lines.bilinear_interp( vy, xx, yy, xcirc[i], ycirc[i]) for i in range(N)])
+    momx_circ = rho_circ * vx_circ
+    momy_circ = rho_circ * vy_circ
+    momr_circ = momx_circ*0
+    for i in range(N):
+        rhatx, rhaty = circle_unitnormal(xcirc[i], ycirc[i], xc, yc)
+        momr_circ[i] = momx_circ[i]*rhatx + momy_circ[i]*rhaty
+    momr_circ_p = momx_circ*1
+    momr_circ_m = momx_circ*1
+    momr_circ_p[np.where(momr_circ_p<0)] = 0.0
+    momr_circ_m[np.where(momr_circ_m>0)] = 0.0
+    return np.trapz(momr_circ_p, dx=dx), np.trapz(momr_circ_m, dx=dx)
