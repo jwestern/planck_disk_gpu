@@ -3,7 +3,7 @@ import numpy as np
 '''
 Note: when testing with matplotlib plots, use
 
-imshow(rho, extent=(-15,15,-15,15), origin='bottomleft')
+imshow(rho, extent=(-DR,DR,-DR,DR), origin='bottomleft')
 
 otherwise the x,y coordinates will be messed up.
 
