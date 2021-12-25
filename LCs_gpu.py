@@ -4,6 +4,7 @@ import msgpack
 import re
 import cupy as cp
 from sailfish.kernel.library import Library
+import corotate
 
 exec(open('constants3.py').read())
 
@@ -87,6 +88,14 @@ buffer_scale = 0.1
 sink_rate    = cp.float(re.search('sink_rate=(.+?):', d['parameters']).group(1))
 eccentricity = cp.float(re.search(':e=(.+?):', d['parameters']).group(1))
 pressure_floor=cp.float(re.search('pressure_floor=(.+?):', d['command_line']['setup']).group(1))
+
+### Corotate computation parameters
+save_corotation_data = 1
+mx,my = 0.1, 0.05
+Nh = int(N/2)
+Mx = int(mx*n2)
+My = int(my*n2) #can zoom on on array by selecting [Nh-Mx:Nh+Mx,Nh-My:Nh+My]
+###
 
 x         = cp.arange((N))*dx - 2*DR/2. + dx/2.
 xx,yy     = cp.zeros((N,N)),cp.zeros((N,N))
@@ -285,14 +294,24 @@ for i in range(len(Nchkpts)):
 	cooling_one_side[cp.where(cooling_one_side<0)] = 0.0
 	del eps_code, eps_code_prime, epsprime_machceiling, bup
 
+	#Compute effective temperature
 	Teff      = (cooling_one_side / sigma_code / Mdot_boost)**0.25
 	Teff[cp.where(Teff==0)] = 1e-16
 	del cooling_one_side
 
+	#Update mass accretion rates
 	M1dot.append( mass_accretion_rate(x1[-1],y1[-1],rho_code) )
 	M2dot.append( mass_accretion_rate(x2[-1],y2[-1],rho_code) )
+
+	#Optionally, compute various mass fluxes and save corotating frame snapshots
+	if save_corotation_data==1:
+		rho_rotated = corotate.ROTATE(rho_code, x1[-1], y1[-1])[Nh-Mx:Nh+Mx,Nh-My:Nh+My]
+		cp.save(fn+'rho_rotated_'+str(n), rho_rotated)
+		del rho_rotated
+
 	del rho_code
 
+	#Compute banded luminosity maps
 	lum_resolved_cell_vis  = cp.zeros((N,N))
 	lum_resolved_cell_inf  = cp.zeros((N,N))
 
@@ -309,6 +328,7 @@ for i in range(len(Nchkpts)):
 	lum_resolved_cell_bol = cp.ones((N,N)) * cp.pi * prefact * cp.pi**4/15
 	del anti_vis0, anti_inf1, anti_vis1, prefact
 
+	#Integrate banded luminosity maps over space, excluding buffer region
 	buffmask = cp.ones((N,N))
 	buffmask[np.where(rr>DR-buffer_scale)] = 0.0
 	lum_resolved_bol .append( cp.sum(lum_resolved_cell_bol*buffmask )*dx*dx*l0*l0 )
@@ -331,6 +351,7 @@ for i in range(len(Nchkpts)):
 	lum_BH2_inf .append( cp.sum(lum_resolved_cell_inf *mask_BH2)*dx*dx*l0*l0 )
 	del mask_BH2
 
+	#Save stuff
 	cp.save('lum_resolved_vis' ,cp.array(lum_resolved_vis ))
 	cp.save('lum_resolved_inf' ,cp.array(lum_resolved_inf ))
 	cp.save('time'             ,cp.array(time             ))
@@ -428,3 +449,5 @@ for i in range(len(Nchkpts)):
 	cp.save('frac_bol', frac_bol)
 	cp.save('frac_vis', frac_vis)
 	cp.save('frac_inf', frac_inf)
+
+	#
