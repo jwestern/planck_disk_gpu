@@ -20,7 +20,7 @@ def AsNumpy(x):
 exec(open('constants3.py').read())
 
 def reconstitute(filename, fieldnum, numfields):
-    chkpt = msgpack.load(open(filename, 'rb'))
+    chkpt = msgpack.load(open(filename, 'rb'), raw=False)
     mesh = chkpt['mesh']
     cfl  = chkpt['command_line']['cfl_number']
     tnew = chkpt['time']
@@ -79,7 +79,7 @@ Nchkpts   = list(Nchkpts) + list(Nextra)
 for i in range(len(Nextra)):
     nstrs.append(str(Nextra[i]))
 print(nstr)
-d         = msgpack.load(open(fn+'chkpt.'+nstr+'.sf','rb'))
+d         = msgpack.load(open(fn+'chkpt.'+nstr+'.sf','rb'), raw=False)
 d['parameters'] = ':'+d['parameters']+':' #this allows parameter reads at beginning and end of the parameter string
 DR        = xp.float(re.search('domain_radius=(.+?):', d['parameters']).group(1))
 N         = d['mesh']['ni']
@@ -102,10 +102,10 @@ pressure_floor=xp.float(re.search('pressure_floor=(.+?):', d['command_line']['se
 
 ### Corotate computation parameters
 save_corotation_data = 1
-mx,my = 0.1, 0.05
+mx,my = 0.05, 0.1
 Nh = int(N/2)
-Mx = int(mx*n2)
-My = int(my*n2) #can zoom on on array by selecting [Nh-Mx:Nh+Mx,Nh-My:Nh+My]
+Mx = int(mx*Nh)
+My = int(my*Nh) #can zoom on on array by selecting [Nh-Mx:Nh+Mx,Nh-My:Nh+My]
 ###
 
 x         = xp.arange((N))*dx - 2*DR/2. + dx/2.
