@@ -262,203 +262,206 @@ PUBLIC void planck_anti_array_1D(
 }
 """
 
-library = Library(planck_anti_approx_code, mode="gpu")
+if xp.__name__ == 'cupy':
+    library = Library(planck_anti_approx_code, mode="gpu")
+elif xp.__name__ == 'numpy':
+    library = Library(planck_anti_approx_code, mode="cpu")
+else:
+    print("Error: xp must be cupy or numpy")
 
 for i in range(len(Nchkpts)):
-	n         = Nchkpts[i]
-	nstr      = nstrs[i]
-	print('Reading checkpoint '+nstr)
-	rho_code, vx_code, vy_code, pres_code, eps_code2, cfl, tnew, x1new, y1new, x2new, y2new = reconstitute(fn+'chkpt.'+nstr+'.sf',-1,4)
-	time.append(tnew)
-	x1.append( x1new)
-	y1.append( y1new)
-	x2.append( x2new)
-	y2.append( y2new)
-	pres_code[xp.where(pres_code<0)] = pressure_floor
-	eps_code  = pres_code/rho_code/(gamma-1.)
-	if xp.amax(abs(eps_code-eps_code2))!=0:
-		print("Warning: eps does not agree with pres/rho/(gamma-1).")
-	cs_code   = xp.sqrt(gamma*pres_code/rho_code)
-	sigspeeds = xp.array([abs(vx_code) + cs_code, abs(vy_code) + cs_code])
-	maxspeed  = xp.amax(sigspeeds)
-	dt        = cfl*dx/maxspeed
-	del pres_code, eps_code2, cs_code, sigspeeds, maxspeed
+    n         = Nchkpts[i]
+    nstr      = nstrs[i]
+    print('Reading checkpoint '+nstr)
+    rho_code, vx_code, vy_code, pres_code, eps_code2, cfl, tnew, x1new, y1new, x2new, y2new = reconstitute(fn+'chkpt.'+nstr+'.sf',-1,4)
+    time.append(tnew)
+    x1.append( x1new)
+    y1.append( y1new)
+    x2.append( x2new)
+    y2.append( y2new)
+    pres_code[xp.where(pres_code<0)] = pressure_floor
+    eps_code  = pres_code/rho_code/(gamma-1.)
+    if xp.amax(abs(eps_code-eps_code2))!=0:
+        print("Warning: eps does not agree with pres/rho/(gamma-1).")
+    cs_code   = xp.sqrt(gamma*pres_code/rho_code)
+    sigspeeds = xp.array([abs(vx_code) + cs_code, abs(vy_code) + cs_code])
+    maxspeed  = xp.amax(sigspeeds)
+    dt        = cfl*dx/maxspeed
+    del pres_code, eps_code2, cs_code, sigspeeds, maxspeed
 
-	### Cooling in the limit dt -> 0
-	#rho       = rho_code * m0/l0**2
-	#pres      = pres_code * m0/t0**2
-	#kTmid     = pres/rho * mp #midplane kT in units of erg
-	#Tmid      = kTmid/kb #midplane T in units of Kelvin
-	#cooling_one_side     = (4./3) * sigma * Tmid**4 / (rho * kappa) #limit dt->0
-	#del rho, pres, Tmid, kTmid
+    ### Cooling in the limit dt -> 0
+    #rho       = rho_code * m0/l0**2
+    #pres      = pres_code * m0/t0**2
+    #kTmid     = pres/rho * mp #midplane kT in units of erg
+    #Tmid      = kTmid/kb #midplane T in units of Kelvin
+    #cooling_one_side     = (4./3) * sigma * Tmid**4 / (rho * kappa) #limit dt->0
+    #del rho, pres, Tmid, kTmid
 
-	eps_code_prime        = eps_code * (1. + 3.*A/rho_code**2 * eps_code**3 *dt)**(-1./3)
-	ek                    = 0.5 * (vx_code**2 + vy_code**2)
-	epsprime_machceiling  = 2.0 * ek / gamma / (gamma - 1.0) / mach_ceiling**2
-	del vx_code, vy_code, ek
+    eps_code_prime        = eps_code * (1. + 3.*A/rho_code**2 * eps_code**3 *dt)**(-1./3)
+    ek                    = 0.5 * (vx_code**2 + vy_code**2)
+    epsprime_machceiling  = 2.0 * ek / gamma / (gamma - 1.0) / mach_ceiling**2
+    del vx_code, vy_code, ek
 
-	#Apply Mach ceiling
-	bup = xp.where(epsprime_machceiling > eps_code_prime)
-	eps_code_prime[bup] = epsprime_machceiling[bup]
+    #Apply Mach ceiling
+    bup = xp.where(epsprime_machceiling > eps_code_prime)
+    eps_code_prime[bup] = epsprime_machceiling[bup]
 
-	cooling_one_side = -rho_code * (eps_code_prime - eps_code) / dt / 2
-	cooling_one_side[xp.where(cooling_one_side<0)] = 0.0
-	del eps_code, eps_code_prime, epsprime_machceiling, bup
+    cooling_one_side = -rho_code * (eps_code_prime - eps_code) / dt / 2
+    cooling_one_side[xp.where(cooling_one_side<0)] = 0.0
+    del eps_code, eps_code_prime, epsprime_machceiling, bup
 
-	#Compute effective temperature
-	Teff      = (cooling_one_side / sigma_code / Mdot_boost)**0.25
-	Teff[xp.where(Teff==0)] = 1e-16
-	del cooling_one_side
+    #Compute effective temperature
+    Teff      = (cooling_one_side / sigma_code / Mdot_boost)**0.25
+    Teff[xp.where(Teff==0)] = 1e-16
+    del cooling_one_side
 
-	#Update mass accretion rates
-	M1dot.append( mass_accretion_rate(x1[-1],y1[-1],rho_code) )
-	M2dot.append( mass_accretion_rate(x2[-1],y2[-1],rho_code) )
+    #Update mass accretion rates
+    M1dot.append( mass_accretion_rate(x1[-1],y1[-1],rho_code) )
+    M2dot.append( mass_accretion_rate(x2[-1],y2[-1],rho_code) )
 
-	#Optionally, compute various mass fluxes and save corotating frame snapshots
-	if save_corotation_data==1:
-		rho_rotated = corotate.ROTATE(rho_code, x1[-1], y1[-1])[Nh-Mx:Nh+Mx,Nh-My:Nh+My]
-		xp.save(fn+'rho_rotated_'+str(n), rho_rotated)
-		del rho_rotated
+    #Optionally, compute various mass fluxes and save corotating frame snapshots
+    if save_corotation_data==1:
+        rho_rotated = corotate.ROTATE(rho_code, x1[-1], y1[-1])[Nh-Mx:Nh+Mx,Nh-My:Nh+My].T
+        xp.save(fn+'rho_rotated_'+str(n), rho_rotated)
+        del rho_rotated
 
-	del rho_code
+    del rho_code
 
-	#Compute banded luminosity maps
-	lum_resolved_cell_vis  = xp.zeros((N,N))
-	lum_resolved_cell_inf  = xp.zeros((N,N))
+    #Compute banded luminosity maps
+    lum_resolved_cell_vis  = xp.zeros((N,N))
+    lum_resolved_cell_inf  = xp.zeros((N,N))
 
-	anti_vis0 = xp.zeros((N,N))
-	anti_inf1 = xp.zeros((N,N))
-	anti_vis1 = xp.zeros((N,N))
-	library.planck_anti_array[Teff.shape](Teff, cm_vis[0], anti_vis0)
-	library.planck_anti_array[Teff.shape](Teff, cm_inf[1], anti_inf1)
-	library.planck_anti_array[Teff.shape](Teff, cm_vis[1], anti_vis1)
+    anti_vis0 = xp.zeros((N,N))
+    anti_inf1 = xp.zeros((N,N))
+    anti_vis1 = xp.zeros((N,N))
+    library.planck_anti_array[Teff.shape](Teff, cm_vis[0], anti_vis0)
+    library.planck_anti_array[Teff.shape](Teff, cm_inf[1], anti_inf1)
+    library.planck_anti_array[Teff.shape](Teff, cm_vis[1], anti_vis1)
 
-	prefact  = (2/c**2)*(kb*Teff)**4/h**3
-	lum_resolved_cell_vis = xp.pi * prefact * (anti_vis1 - anti_vis0)
-	lum_resolved_cell_inf = xp.pi * prefact * (anti_inf1 - anti_vis1)
-	lum_resolved_cell_bol = xp.ones((N,N)) * xp.pi * prefact * xp.pi**4/15
-	del anti_vis0, anti_inf1, anti_vis1, prefact
+    prefact  = (2/c**2)*(kb*Teff)**4/h**3
+    lum_resolved_cell_vis = xp.pi * prefact * (anti_vis1 - anti_vis0)
+    lum_resolved_cell_inf = xp.pi * prefact * (anti_inf1 - anti_vis1)
+    lum_resolved_cell_bol = xp.ones((N,N)) * xp.pi * prefact * xp.pi**4/15
+    del anti_vis0, anti_inf1, anti_vis1, prefact
 
-	#Integrate banded luminosity maps over space, excluding buffer region
-	buffmask = xp.ones((N,N))
-	buffmask[np.where(rr>DR-buffer_scale)] = 0.0
-	lum_resolved_bol .append( xp.sum(lum_resolved_cell_bol*buffmask )*dx*dx*l0*l0 )
-	lum_resolved_vis .append( xp.sum(lum_resolved_cell_vis*buffmask )*dx*dx*l0*l0 )
-	lum_resolved_inf .append( xp.sum(lum_resolved_cell_inf*buffmask )*dx*dx*l0*l0 )
-	del buffmask
+    #Integrate banded luminosity maps over space, excluding buffer region
+    buffmask = xp.ones((N,N))
+    buffmask[np.where(rr>DR-buffer_scale)] = 0.0
+    lum_resolved_bol .append( xp.sum(lum_resolved_cell_bol*buffmask )*dx*dx*l0*l0 )
+    lum_resolved_vis .append( xp.sum(lum_resolved_cell_vis*buffmask )*dx*dx*l0*l0 )
+    lum_resolved_inf .append( xp.sum(lum_resolved_cell_inf*buffmask )*dx*dx*l0*l0 )
+    del buffmask
 
-	#Collect emission from vicinity of BH1 and BH2 separately
-	rphsq = (rp_code/2)**2 #half pericenter distance squared
+    #Collect emission from vicinity of BH1 and BH2 separately
+    rphsq = (rp_code/2)**2 #half pericenter distance squared
 
-	mask_BH1 = (x1[-1]-xx)**2 + (y1[-1]-yy)**2 < rphsq
-	lum_BH1_bol .append( xp.sum(lum_resolved_cell_bol *mask_BH1)*dx*dx*l0*l0 )
-	lum_BH1_vis .append( xp.sum(lum_resolved_cell_vis *mask_BH1)*dx*dx*l0*l0 )
-	lum_BH1_inf .append( xp.sum(lum_resolved_cell_inf *mask_BH1)*dx*dx*l0*l0 )
-	del mask_BH1
+    mask_BH1 = (x1[-1]-xx)**2 + (y1[-1]-yy)**2 < rphsq
+    lum_BH1_bol .append( xp.sum(lum_resolved_cell_bol *mask_BH1)*dx*dx*l0*l0 )
+    lum_BH1_vis .append( xp.sum(lum_resolved_cell_vis *mask_BH1)*dx*dx*l0*l0 )
+    lum_BH1_inf .append( xp.sum(lum_resolved_cell_inf *mask_BH1)*dx*dx*l0*l0 )
+    del mask_BH1
 
-	mask_BH2 = (x2[-1]-xx)**2 + (y2[-1]-yy)**2 < rphsq
-	lum_BH2_bol .append( xp.sum(lum_resolved_cell_bol *mask_BH2)*dx*dx*l0*l0 )
-	lum_BH2_vis .append( xp.sum(lum_resolved_cell_vis *mask_BH2)*dx*dx*l0*l0 )
-	lum_BH2_inf .append( xp.sum(lum_resolved_cell_inf *mask_BH2)*dx*dx*l0*l0 )
-	del mask_BH2
+    mask_BH2 = (x2[-1]-xx)**2 + (y2[-1]-yy)**2 < rphsq
+    lum_BH2_bol .append( xp.sum(lum_resolved_cell_bol *mask_BH2)*dx*dx*l0*l0 )
+    lum_BH2_vis .append( xp.sum(lum_resolved_cell_vis *mask_BH2)*dx*dx*l0*l0 )
+    lum_BH2_inf .append( xp.sum(lum_resolved_cell_inf *mask_BH2)*dx*dx*l0*l0 )
+    del mask_BH2
 
-	#Save stuff
-	xp.save('lum_resolved_vis' ,xp.array(lum_resolved_vis ))
-	xp.save('lum_resolved_inf' ,xp.array(lum_resolved_inf ))
-	xp.save('time'             ,xp.array(time             ))
-	xp.save('x1'               ,x1                         )
-	xp.save('y1'               ,y1                         )
-	xp.save('x2'               ,x2                         )
-	xp.save('y2'               ,y2                         )
-	xp.save('M1dot'            ,xp.array(M1dot            ))
-	xp.save('M2dot'            ,xp.array(M2dot            ))
+    #Save stuff
+    xp.save('lum_resolved_vis' ,xp.array(lum_resolved_vis ))
+    xp.save('lum_resolved_inf' ,xp.array(lum_resolved_inf ))
+    xp.save('time'             ,xp.array(time             ))
+    xp.save('x1'               ,x1                         )
+    xp.save('y1'               ,y1                         )
+    xp.save('x2'               ,x2                         )
+    xp.save('y2'               ,y2                         )
+    xp.save('M1dot'            ,xp.array(M1dot            ))
+    xp.save('M2dot'            ,xp.array(M2dot            ))
 
-	xp.save('lum_BH1_vis' ,xp.array(lum_BH1_vis ))
-	xp.save('lum_BH1_inf' ,xp.array(lum_BH1_inf ))
+    xp.save('lum_BH1_vis' ,xp.array(lum_BH1_vis ))
+    xp.save('lum_BH1_inf' ,xp.array(lum_BH1_inf ))
 
-	xp.save('lum_BH2_vis' ,xp.array(lum_BH2_vis ))
-	xp.save('lum_BH2_inf' ,xp.array(lum_BH2_inf ))
+    xp.save('lum_BH2_vis' ,xp.array(lum_BH2_vis ))
+    xp.save('lum_BH2_inf' ,xp.array(lum_BH2_inf ))
 
-	xp.save(fn+                  'Teff_'+str(n),Teff                  )
-	xp.save(fn+'lum_resolved_cell_vis_' +str(n),lum_resolved_cell_vis )
-	xp.save(fn+'lum_resolved_cell_inf_' +str(n),lum_resolved_cell_inf )
+    xp.save(fn+                  'Teff_'+str(n),Teff                  )
+    xp.save(fn+'lum_resolved_cell_vis_' +str(n),lum_resolved_cell_vis )
+    xp.save(fn+'lum_resolved_cell_inf_' +str(n),lum_resolved_cell_inf )
 
-	#Compute subsink emission
-	tgrow_M1_cgs = M1/M1dot[-1]
-	tgrow_M2_cgs = M2/M2dot[-1]
-	subsink_flux_M1 = cooling_flux_axisymmetric_subsink([tgrow_M1_cgs], 1)
-	subsink_flux_M2 = cooling_flux_axisymmetric_subsink([tgrow_M2_cgs], 2)
-	subsink_Teff_M1 = (subsink_flux_M1/sigma/Mdot_boost)**0.25
-	subsink_Teff_M2 = (subsink_flux_M2/sigma/Mdot_boost)**0.25
+    #Compute subsink emission
+    tgrow_M1_cgs = M1/M1dot[-1]
+    tgrow_M2_cgs = M2/M2dot[-1]
+    subsink_flux_M1 = cooling_flux_axisymmetric_subsink([tgrow_M1_cgs], 1)
+    subsink_flux_M2 = cooling_flux_axisymmetric_subsink([tgrow_M2_cgs], 2)
+    subsink_Teff_M1 = (subsink_flux_M1/sigma/Mdot_boost)**0.25
+    subsink_Teff_M2 = (subsink_flux_M2/sigma/Mdot_boost)**0.25
 
-	subsink_flux_M1_densitized = subsink_flux_M1 * 2*np.pi*rr_subsink_M1_cgs
-	subsink_flux_M2_densitized = subsink_flux_M2 * 2*np.pi*rr_subsink_M2_cgs
+    subsink_flux_M1_densitized = subsink_flux_M1 * 2*np.pi*rr_subsink_M1_cgs
+    subsink_flux_M2_densitized = subsink_flux_M2 * 2*np.pi*rr_subsink_M2_cgs
 
-	lum_subsink_bol_old .append( np.trapz(AsNumpy(subsink_flux_M1_densitized), x=AsNumpy(rr_subsink_M1_cgs)) + np.trapz(AsNumpy(subsink_flux_M2_densitized), x=AsNumpy(rr_subsink_M2_cgs)) )
+    lum_subsink_bol_old .append( np.trapz(AsNumpy(subsink_flux_M1_densitized), x=AsNumpy(rr_subsink_M1_cgs)) + np.trapz(AsNumpy(subsink_flux_M2_densitized), x=AsNumpy(rr_subsink_M2_cgs)) )
 
-	lum_subsink_M1_annulus_vis  = rr_subsink_M1_cgs*0
-	lum_subsink_M1_annulus_inf  = rr_subsink_M1_cgs*0
-	lum_subsink_M1_annulus_bol  = rr_subsink_M1_cgs*0
+    lum_subsink_M1_annulus_vis  = rr_subsink_M1_cgs*0
+    lum_subsink_M1_annulus_inf  = rr_subsink_M1_cgs*0
+    lum_subsink_M1_annulus_bol  = rr_subsink_M1_cgs*0
 
-	lum_subsink_M2_annulus_vis  = rr_subsink_M2_cgs*0
-	lum_subsink_M2_annulus_inf  = rr_subsink_M2_cgs*0
-	lum_subsink_M2_annulus_bol  = rr_subsink_M2_cgs*0
+    lum_subsink_M2_annulus_vis  = rr_subsink_M2_cgs*0
+    lum_subsink_M2_annulus_inf  = rr_subsink_M2_cgs*0
+    lum_subsink_M2_annulus_bol  = rr_subsink_M2_cgs*0
 
-	Nsub = len(rr_subsink_M1_cgs)
-	anti_vis0 = xp.zeros(Nsub)
-	anti_inf1 = xp.zeros(Nsub)
-	anti_vis1 = xp.zeros(Nsub)
-	library.planck_anti_array_1D[subsink_Teff_M1.shape](subsink_Teff_M1, cm_vis[0], anti_vis0)
-	library.planck_anti_array_1D[subsink_Teff_M1.shape](subsink_Teff_M1, cm_inf[1], anti_inf1)
-	library.planck_anti_array_1D[subsink_Teff_M1.shape](subsink_Teff_M1, cm_vis[1], anti_vis1)
+    Nsub = len(rr_subsink_M1_cgs)
+    anti_vis0 = xp.zeros(Nsub)
+    anti_inf1 = xp.zeros(Nsub)
+    anti_vis1 = xp.zeros(Nsub)
+    library.planck_anti_array_1D[subsink_Teff_M1.shape](subsink_Teff_M1, cm_vis[0], anti_vis0)
+    library.planck_anti_array_1D[subsink_Teff_M1.shape](subsink_Teff_M1, cm_inf[1], anti_inf1)
+    library.planck_anti_array_1D[subsink_Teff_M1.shape](subsink_Teff_M1, cm_vis[1], anti_vis1)
 
-	prefact  = (2/c**2)*(kb*subsink_Teff_M1)**4/h**3
-	lum_subsink_M1_annulus_vis = xp.pi * prefact * (anti_vis1 - anti_vis0)
-	lum_subsink_M1_annulus_inf = xp.pi * prefact * (anti_inf1 - anti_vis1)
-	lum_subsink_M1_annulus_bol = xp.ones(Nsub) * xp.pi * prefact * xp.pi**4/15
+    prefact  = (2/c**2)*(kb*subsink_Teff_M1)**4/h**3
+    lum_subsink_M1_annulus_vis = xp.pi * prefact * (anti_vis1 - anti_vis0)
+    lum_subsink_M1_annulus_inf = xp.pi * prefact * (anti_inf1 - anti_vis1)
+    lum_subsink_M1_annulus_bol = xp.ones(Nsub) * xp.pi * prefact * xp.pi**4/15
 
-	Nsub = len(rr_subsink_M2_cgs)
-	anti_vis0 = xp.zeros(Nsub)
-	anti_inf1 = xp.zeros(Nsub)
-	anti_vis1 = xp.zeros(Nsub)
-	library.planck_anti_array_1D[subsink_Teff_M2.shape](subsink_Teff_M2, cm_vis[0], anti_vis0)
-	library.planck_anti_array_1D[subsink_Teff_M2.shape](subsink_Teff_M2, cm_inf[1], anti_inf1)
-	library.planck_anti_array_1D[subsink_Teff_M2.shape](subsink_Teff_M2, cm_vis[1], anti_vis1)
+    Nsub = len(rr_subsink_M2_cgs)
+    anti_vis0 = xp.zeros(Nsub)
+    anti_inf1 = xp.zeros(Nsub)
+    anti_vis1 = xp.zeros(Nsub)
+    library.planck_anti_array_1D[subsink_Teff_M2.shape](subsink_Teff_M2, cm_vis[0], anti_vis0)
+    library.planck_anti_array_1D[subsink_Teff_M2.shape](subsink_Teff_M2, cm_inf[1], anti_inf1)
+    library.planck_anti_array_1D[subsink_Teff_M2.shape](subsink_Teff_M2, cm_vis[1], anti_vis1)
 
-	prefact  = (2/c**2)*(kb*subsink_Teff_M2)**4/h**3
-	lum_subsink_M2_annulus_vis = xp.pi * prefact * (anti_vis1 - anti_vis0)
-	lum_subsink_M2_annulus_inf = xp.pi * prefact * (anti_inf1 - anti_vis1)
-	lum_subsink_M2_annulus_bol = xp.ones(Nsub) * xp.pi * prefact * xp.pi**4/15
+    prefact  = (2/c**2)*(kb*subsink_Teff_M2)**4/h**3
+    lum_subsink_M2_annulus_vis = xp.pi * prefact * (anti_vis1 - anti_vis0)
+    lum_subsink_M2_annulus_inf = xp.pi * prefact * (anti_inf1 - anti_vis1)
+    lum_subsink_M2_annulus_bol = xp.ones(Nsub) * xp.pi * prefact * xp.pi**4/15
 
-	lum_subsink_M1_bol .append( np.trapz(AsNumpy(lum_subsink_M1_annulus_bol *2*xp.pi*rr_subsink_M1_cgs), x=AsNumpy(rr_subsink_M1_cgs)) )
-	lum_subsink_M1_vis .append( np.trapz(AsNumpy(lum_subsink_M1_annulus_vis *2*xp.pi*rr_subsink_M1_cgs), x=AsNumpy(rr_subsink_M1_cgs)) )
-	lum_subsink_M1_inf .append( np.trapz(AsNumpy(lum_subsink_M1_annulus_inf *2*xp.pi*rr_subsink_M1_cgs), x=AsNumpy(rr_subsink_M1_cgs)) )
+    lum_subsink_M1_bol .append( np.trapz(AsNumpy(lum_subsink_M1_annulus_bol *2*xp.pi*rr_subsink_M1_cgs), x=AsNumpy(rr_subsink_M1_cgs)) )
+    lum_subsink_M1_vis .append( np.trapz(AsNumpy(lum_subsink_M1_annulus_vis *2*xp.pi*rr_subsink_M1_cgs), x=AsNumpy(rr_subsink_M1_cgs)) )
+    lum_subsink_M1_inf .append( np.trapz(AsNumpy(lum_subsink_M1_annulus_inf *2*xp.pi*rr_subsink_M1_cgs), x=AsNumpy(rr_subsink_M1_cgs)) )
 
-	lum_subsink_M2_bol .append( np.trapz(AsNumpy(lum_subsink_M2_annulus_bol *2*xp.pi*rr_subsink_M2_cgs), x=AsNumpy(rr_subsink_M2_cgs)) )
-	lum_subsink_M2_vis .append( np.trapz(AsNumpy(lum_subsink_M2_annulus_vis *2*xp.pi*rr_subsink_M2_cgs), x=AsNumpy(rr_subsink_M2_cgs)) )
-	lum_subsink_M2_inf .append( np.trapz(AsNumpy(lum_subsink_M2_annulus_inf *2*xp.pi*rr_subsink_M2_cgs), x=AsNumpy(rr_subsink_M2_cgs)) )
+    lum_subsink_M2_bol .append( np.trapz(AsNumpy(lum_subsink_M2_annulus_bol *2*xp.pi*rr_subsink_M2_cgs), x=AsNumpy(rr_subsink_M2_cgs)) )
+    lum_subsink_M2_vis .append( np.trapz(AsNumpy(lum_subsink_M2_annulus_vis *2*xp.pi*rr_subsink_M2_cgs), x=AsNumpy(rr_subsink_M2_cgs)) )
+    lum_subsink_M2_inf .append( np.trapz(AsNumpy(lum_subsink_M2_annulus_inf *2*xp.pi*rr_subsink_M2_cgs), x=AsNumpy(rr_subsink_M2_cgs)) )
 
-	xp.save('lum_subsink_M1_vis' ,xp.array(lum_subsink_M1_vis ))
-	xp.save('lum_subsink_M1_inf' ,xp.array(lum_subsink_M1_inf ))
+    xp.save('lum_subsink_M1_vis' ,xp.array(lum_subsink_M1_vis ))
+    xp.save('lum_subsink_M1_inf' ,xp.array(lum_subsink_M1_inf ))
 
-	xp.save('lum_subsink_M2_vis' ,xp.array(lum_subsink_M2_vis ))
-	xp.save('lum_subsink_M2_inf' ,xp.array(lum_subsink_M2_inf ))
+    xp.save('lum_subsink_M2_vis' ,xp.array(lum_subsink_M2_vis ))
+    xp.save('lum_subsink_M2_inf' ,xp.array(lum_subsink_M2_inf ))
 
-	lum_total_bol = xp.array(lum_resolved_bol ) + xp.array(lum_subsink_M1_bol ) + xp.array(lum_subsink_M2_bol )
-	lum_total_vis = xp.array(lum_resolved_vis ) + xp.array(lum_subsink_M1_vis ) + xp.array(lum_subsink_M2_vis )
-	lum_total_inf = xp.array(lum_resolved_inf ) + xp.array(lum_subsink_M1_inf ) + xp.array(lum_subsink_M2_inf )
+    lum_total_bol = xp.array(lum_resolved_bol ) + xp.array(lum_subsink_M1_bol ) + xp.array(lum_subsink_M2_bol )
+    lum_total_vis = xp.array(lum_resolved_vis ) + xp.array(lum_subsink_M1_vis ) + xp.array(lum_subsink_M2_vis )
+    lum_total_inf = xp.array(lum_resolved_inf ) + xp.array(lum_subsink_M1_inf ) + xp.array(lum_subsink_M2_inf )
 
-	xp.save('lum_total_vis' ,xp.array(lum_resolved_vis ) + xp.array(lum_subsink_M1_vis ) + xp.array(lum_subsink_M2_vis ))
-	xp.save('lum_total_inf' ,xp.array(lum_resolved_inf ) + xp.array(lum_subsink_M1_inf ) + xp.array(lum_subsink_M2_inf ))
+    xp.save('lum_total_vis' ,xp.array(lum_resolved_vis ) + xp.array(lum_subsink_M1_vis ) + xp.array(lum_subsink_M2_vis ))
+    xp.save('lum_total_inf' ,xp.array(lum_resolved_inf ) + xp.array(lum_subsink_M1_inf ) + xp.array(lum_subsink_M2_inf ))
 
-	frac_bol = xp.array(lum_resolved_bol) / xp.array(lum_total_bol)
-	frac_vis = xp.array(lum_resolved_vis) / xp.array(lum_total_vis)
-	frac_inf = xp.array(lum_resolved_inf) / xp.array(lum_total_inf)
+    frac_bol = xp.array(lum_resolved_bol) / xp.array(lum_total_bol)
+    frac_vis = xp.array(lum_resolved_vis) / xp.array(lum_total_vis)
+    frac_inf = xp.array(lum_resolved_inf) / xp.array(lum_total_inf)
 
-	print(frac_vis)
-	print(frac_inf)
-	xp.save('frac_bol', frac_bol)
-	xp.save('frac_vis', frac_vis)
-	xp.save('frac_inf', frac_inf)
-
-	#
+    print(frac_vis)
+    print(frac_inf)
+    xp.save('frac_bol', frac_bol)
+    xp.save('frac_vis', frac_vis)
+    xp.save('frac_inf', frac_inf)
