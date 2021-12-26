@@ -9,7 +9,7 @@ This does the job of lines.py, except in the corotating frame (much simpler).
 
 '''
 
-#tested
+#tested. Must pass transposed rho.
 def ROTATE(rho, x1, y1, Order):
     angle = np.arctan2(y1,x1) * 180.0 / np.pi
     return rotate(rho, angle, reshape=False, order=Order)
@@ -38,11 +38,10 @@ def project_along_bhs(vx, vy, x1, y1, x2, y2):
     mag  = np.sqrt(xvec**2 + yvec**2)
     return vx * xvec / mag + vy * yvec / mag
 
-#tested on single snapshot.
-#need to compare time series with corotating movie
+#tested
 def mdot_minidisk_separator(N, length, rho, vx, vy, x1, y1, x2, y2, xx, yy):
     momproj = project_along_bhs(rho*vx, rho*vy, x1, y1, x2, y2)
-    mom  = ROTATE( momproj, x1, y1, 3)
+    mom  = ROTATE( momproj.T, x1, y1, 3)
     del rho, vx, vy, momproj
     xmd, ymd = minidisk_separator(N, length)
     dx = length/(N-1.0)

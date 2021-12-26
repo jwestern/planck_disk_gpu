@@ -2,10 +2,11 @@ import pdb
 import numpy as np
 import msgpack
 import re
+import matplotlib.pyplot as plt
 try:
     import cupy as xp
 except ImportError:
-    import np as xp
+    import numpy as xp
 from sailfish.kernel.library import Library
 import corotate
 
@@ -102,7 +103,7 @@ pressure_floor=xp.float(re.search('pressure_floor=(.+?):', d['command_line']['se
 
 ### Corotate computation parameters
 save_corotation_data = 1
-mx,my = 0.05, 0.1
+mx,my = 0.08, 0.1
 Nh = int(N/2)
 Mx = int(mx*Nh)
 My = int(my*Nh) #can zoom on on array by selecting [Nh-Mx:Nh+Mx,Nh-My:Nh+My]
@@ -172,6 +173,8 @@ r_ISCO_M2_cgs      = 6*M2 *G/c**2
 r_sink_cgs         = rs * l0
 rr_subsink_M1_cgs  = np.logspace(0,xp.log10(r_sink_cgs/r_ISCO_M1_cgs),10*N) * r_ISCO_M1_cgs #spans ISCO to sink radius
 rr_subsink_M2_cgs  = np.logspace(0,xp.log10(r_sink_cgs/r_ISCO_M2_cgs),10*N) * r_ISCO_M2_cgs
+
+Mom_md_p, Mom_md_m = [],[]
 
 def sink_kernel(x,y):
 	rr2    = (xx-x)**2 + (yy-y)**2 #2D array
@@ -300,7 +303,7 @@ for i in range(len(Nchkpts)):
     eps_code_prime        = eps_code * (1. + 3.*A/rho_code**2 * eps_code**3 *dt)**(-1./3)
     ek                    = 0.5 * (vx_code**2 + vy_code**2)
     epsprime_machceiling  = 2.0 * ek / gamma / (gamma - 1.0) / mach_ceiling**2
-    del vx_code, vy_code, ek
+    del ek
 
     #Apply Mach ceiling
     bup = xp.where(epsprime_machceiling > eps_code_prime)
@@ -321,11 +324,35 @@ for i in range(len(Nchkpts)):
 
     #Optionally, compute various mass fluxes and save corotating frame snapshots
     if save_corotation_data==1:
-        rho_rotated = corotate.ROTATE(rho_code, x1[-1], y1[-1])[Nh-Mx:Nh+Mx,Nh-My:Nh+My].T
+        mom_md_p, mom_md_m = corotate.mdot_minidisk_separator(int(1.0/dx), 1.0, AsNumpy(rho_code), AsNumpy(vx_code), AsNumpy(vy_code), x1[-1], y1[-1], x2[-1], y2[-1], AsNumpy(xx), AsNumpy(yy))
+        Mom_md_p.append(mom_md_p)
+        Mom_md_m.append(mom_md_m)
+        xp.save('Mom_md_p' ,xp.array(Mom_md_p))
+        xp.save('Mom_md_m' ,xp.array(Mom_md_m))
+        plt.figure(figsize=[10, 8])
+        plt.subplot(211)
+        plt.plot(np.array(time)/2/np.pi, np.array(Mom_md_p))
+        plt.plot(np.array(time)/2/np.pi, np.array(Mom_md_m))
+        plt.xlim(3100,3104)
+
+        rho_rotated = corotate.ROTATE(AsNumpy(rho_code.T), x1[-1], y1[-1], 1)[Nh-Mx:Nh+Mx,Nh-My:Nh+My]
         xp.save(fn+'rho_rotated_'+str(n), rho_rotated)
+        xmd, ymd = corotate.minidisk_separator(100, 1.0)
+        xcirc1, ycirc1 = corotate.circle(100, -0.5, 0.0, 0.5)
+        xcirc2, ycirc2 = corotate.circle(100,  0.5, 0.0, 0.5)
+        xcirc3, ycirc3 = corotate.circle(100,  0.0, 0.0, 1.0)
+        plt.subplot(212)
+        plt.imshow(rho_rotated**0.25, origin='lower', cmap='plasma', extent=(-DR*my,DR*my,-DR*mx,DR*mx))
+        plt.plot(xmd, ymd, color='white')
+        #plt.plot(xcirc1, ycirc1, color='b')
+        #plt.plot(xcirc2, ycirc2, color='r')
+        #plt.plot(xcirc3, ycirc3, color='g')
+        plt.show()
+        plt.savefig("rho_"+str(n)+".png")
+        plt.close()
         del rho_rotated
 
-    del rho_code
+    del rho_code, vx_code, vy_code
 
     #Compute banded luminosity maps
     lum_resolved_cell_vis  = xp.zeros((N,N))
