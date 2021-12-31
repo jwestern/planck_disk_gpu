@@ -169,7 +169,7 @@ for i in range(len(Nchkpts)):
     plt.xlim(3100,3104)
 
     #Compute BH separation, for when e!=0
-    d_bh = np.sqrt((x1[-1] x2[-1])**2 + (y1[-1] - y2[-1])**2)
+    d_bh = np.sqrt((x1[-1] - x2[-1])**2 + (y1[-1] - y2[-1])**2)
 
     #Put density into corotating frame
     rho_rotated = corotate.ROTATE(AsNumpy(rho_code.T), x1[-1], y1[-1], 1)[Nh-Mx:Nh+Mx,Nh-My:Nh+My]
