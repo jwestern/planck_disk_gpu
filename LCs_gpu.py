@@ -174,8 +174,6 @@ r_sink_cgs         = rs * l0
 rr_subsink_M1_cgs  = np.logspace(0,xp.log10(r_sink_cgs/r_ISCO_M1_cgs),10*N) * r_ISCO_M1_cgs #spans ISCO to sink radius
 rr_subsink_M2_cgs  = np.logspace(0,xp.log10(r_sink_cgs/r_ISCO_M2_cgs),10*N) * r_ISCO_M2_cgs
 
-Mom_md_p, Mom_md_m = [],[]
-
 def sink_kernel(x,y):
 	rr2    = (xx-x)**2 + (yy-y)**2 #2D array
 	s2     = rs*rs
@@ -321,38 +319,6 @@ for i in range(len(Nchkpts)):
     #Update mass accretion rates
     M1dot.append( mass_accretion_rate(x1[-1],y1[-1],rho_code) )
     M2dot.append( mass_accretion_rate(x2[-1],y2[-1],rho_code) )
-
-    #Optionally, compute various mass fluxes and save corotating frame snapshots
-    if save_corotation_data==1:
-        mom_md_p, mom_md_m = corotate.mdot_minidisk_separator(int(1.0/dx), 1.0, AsNumpy(rho_code), AsNumpy(vx_code), AsNumpy(vy_code), x1[-1], y1[-1], x2[-1], y2[-1], AsNumpy(xx), AsNumpy(yy))
-        Mom_md_p.append(mom_md_p)
-        Mom_md_m.append(mom_md_m)
-        xp.save('Mom_md_p' ,xp.array(Mom_md_p))
-        xp.save('Mom_md_m' ,xp.array(Mom_md_m))
-        plt.figure(figsize=[10, 8])
-        plt.subplot(211)
-        plt.plot(np.array(time)/2/np.pi, np.array(Mom_md_p))
-        plt.plot(np.array(time)/2/np.pi, np.array(Mom_md_m))
-        plt.xlim(3100,3104)
-
-        d_bh = np.sqrt((x1[-1] x2[-1])**2 + (y1[-1] - y2[-1])**2)
-
-        rho_rotated = corotate.ROTATE(AsNumpy(rho_code.T), x1[-1], y1[-1], 1)[Nh-Mx:Nh+Mx,Nh-My:Nh+My]
-        xp.save(fn+'rho_rotated_'+str(n), rho_rotated)
-        xmd, ymd = corotate.minidisk_separator(100, 1.0)
-        xcirc1, ycirc1 = corotate.circle(100, -0.5, 0.0, 0.5)
-        xcirc2, ycirc2 = corotate.circle(100,  0.5, 0.0, 0.5)
-        xcirc3, ycirc3 = corotate.circle(100,  0.0, 0.0, 1.0)
-        plt.subplot(212)
-        plt.imshow(rho_rotated**0.25, origin='lower', cmap='plasma', extent=(-DR*my,DR*my,-DR*mx,DR*mx))
-        plt.plot(xmd, ymd, color='white')
-        #plt.plot(xcirc1, ycirc1, color='b')
-        #plt.plot(xcirc2, ycirc2, color='r')
-        #plt.plot(xcirc3, ycirc3, color='g')
-        plt.show()
-        plt.savefig("rho_"+str(n)+".png")
-        plt.close()
-        del rho_rotated
 
     del rho_code, vx_code, vy_code
 
