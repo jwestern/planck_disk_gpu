@@ -1,4 +1,7 @@
-import numpy as np
+try:
+    import cupy as xp
+except ImportError:
+    import numpy as xp
 
 '''
 Note: when testing with matplotlib plots, use
@@ -9,8 +12,8 @@ otherwise the x,y coordinates will be messed up.
 
 Tests used coordinate arrays defined via
 
-x     = np.arange((N))*dx - 2*DR/2. + dx/2.
-xx,yy = np.zeros((N,N)),np.zeros((N,N))
+x     = xp.arange((N))*dx - 2*DR/2. + dx/2.
+xx,yy = xp.zeros((N,N)),xp.zeros((N,N))
 for i in range(N):
     xx[:,i] = x*1
     yy[i,:] = x*1
@@ -20,7 +23,7 @@ where DR is the domain radius, dx is resolution, N is grid dimension.
 '''
 
 def unitvec(x, y):
-    mag = np.sqrt(x**2 + y**2)
+    mag = xp.sqrt(x**2 + y**2)
     return x/mag, y/mag
 
 def rotate90(x, y):
@@ -57,13 +60,13 @@ def semicircle(N, x1, y1, radius, theta_start, theta_stop):
     x, y = [], []
     dtheta = (theta_stop - theta_start) / N
     for i in range(N+1):
-        x.append(x1 + radius * np.cos(dtheta * i))
-        y.append(y1 + radius * np.sin(dtheta * i))
+        x.append(x1 + radius * xp.cos(dtheta * i))
+        y.append(y1 + radius * xp.sin(dtheta * i))
     return x, y
 
 #tested
 def circle(N, x1, y1, radius):
-    return semicircle(N, x1, y1, radius, 0.0, 2*np.pi)
+    return semicircle(N, x1, y1, radius, 0.0, 2*xp.pi)
 
 def outward_unitnormal_vec_circle(x, y, x1, y1):
     return unitvec(x - x1, y - y1)
@@ -71,10 +74,10 @@ def outward_unitnormal_vec_circle(x, y, x1, y1):
 #tested
 def bilinear_interp(data, xx, yy, x, y):
     x, y = y, x #need to swap these, don't know why
-    il = np.where(xx[:,0] < x)[0][-1]
-    ih = np.where(xx[:,0] > x)[0][0]
-    jl = np.where(yy[0,:] < y)[0][-1]
-    jh = np.where(yy[0,:] > y)[0][0]
+    il = xp.where(xx[:,0] < x)[0][-1]
+    ih = xp.where(xx[:,0] > x)[0][0]
+    jl = xp.where(yy[0,:] < y)[0][-1]
+    jh = xp.where(yy[0,:] > y)[0][0]
     ll = (x - xx[il,jl]) * (y - yy[il,jl])
     hh = (xx[ih,jh] - x) * (yy[ih,jh] - y)
     lh = (x - xx[il,jh]) * (yy[il,jh] - y)
