@@ -128,14 +128,6 @@ M1dot, M2dot       = [],[]
 
 Mom_md_p, Mom_md_m = [],[]
 
-
-if xp.__name__ == 'cupy':
-    library = Library(planck_anti_approx_code, mode="gpu")
-elif xp.__name__ == 'numpy':
-    library = Library(planck_anti_approx_code, mode="cpu")
-else:
-    print("Error: xp must be cupy or numpy")
-
 for i in range(len(Nchkpts)):
     n         = Nchkpts[i]
     nstr      = nstrs[i]
