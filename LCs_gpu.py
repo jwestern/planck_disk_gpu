@@ -335,6 +335,8 @@ for i in range(len(Nchkpts)):
         plt.plot(np.array(time)/2/np.pi, np.array(Mom_md_m))
         plt.xlim(3100,3104)
 
+        d_bh = np.sqrt((x1[-1] x2[-1])**2 + (y1[-1] - y2[-1])**2)
+
         rho_rotated = corotate.ROTATE(AsNumpy(rho_code.T), x1[-1], y1[-1], 1)[Nh-Mx:Nh+Mx,Nh-My:Nh+My]
         xp.save(fn+'rho_rotated_'+str(n), rho_rotated)
         xmd, ymd = corotate.minidisk_separator(100, 1.0)

@@ -90,19 +90,25 @@ def Tvisc_alpha_isothermal_orbits(M,a,r,alpha,Mach):
 def Tsal(M,a,Mach): #Needs checking
 	return 9./4 * Mach**8 * G*M/sigma/a**3 * M/2/np.pi * (mp/kb/gamma * G*M/a)**(-4.)
 
-def Decoupling_Radius(M,tgrow):
-	return (1./6 * 96./5 * tgrow / c**5. *(G*M)**3)**(1./4)
+#def Decoupling_Radius(M,tgrow):
+#	return (1./6 * 96./5 * tgrow / c**5. *(G*M)**3)**(1./4)
 
-def Decoupling_Radius_ArbEig(M,tgrow,l): #arbitrary accretion "eigenvalue" l, da/dm = -l * a/m
-        return (1./6 * 96./5 * tgrow / c**5. *(G*M)**3 / l)**(1./4)
+#def Decoupling_Radius_ArbEig(M,tgrow,l): #arbitrary accretion "eigenvalue" l, da/dm = -l * a/m
+#        return (1./6 * 96./5 * tgrow / c**5. *(G*M)**3 / l)**(1./4)
 
 #Must be wrong because q=1 doesn't recover the previous formula
-def Decoupling_Radius_ArbEigq(M,tgrow,l,q): #also arbitrary mass ratio q
-        return (1./6 * 96./5 * tgrow / c**5. *(G*M)**3 / l * 4 * q / (1+q)**2)**(1./4)
+#def Decoupling_Radius_ArbEigq(M,tgrow,l,q): #also arbitrary mass ratio q
+#        return (1./6 * 96./5 * tgrow / c**5. *(G*M)**3 / l * 4 * q / (1+q)**2)**(1./4)
 
-def Decoupling_Radius_ArbEigqe(M,tgrow,l,q,e): #also arbitrary eccentricity e. Chirp mass get mapped to e_correction * chirp_mass
-        e_correction = (1-e**2)**(-7./2) * (1 + 73./24*e**2 + 37/96*e**4)
-        return ( tgrow * 2./3 * 96./5 * (G*M)**3/c**5 * q/(1+q)**2 / l / e_correction )**(1./4)
+#def Decoupling_Radius_ArbEigqe(M,tgrow,l,q,e): #also arbitrary eccentricity e. Chirp mass get mapped to e_correction * chirp_mass
+#        e_correction = (1-e**2)**(-7./2) * (1 + 73./24*e**2 + 37./96*e**4)
+#        return ( tgrow * 2./3 * 96./5 * (G*M)**3/c**5 * q/(1+q)**2 / l / e_correction )**(1./4)
+
+def Decoupling_Radius_ArbEigqe2(M,tgrow,l,q,e): #double-checking with this version Nov 6, 2021
+	m1 = M/(1+q)
+	m2 = q/(1+q)*M
+	a4 = tgrow/l * 64./5 * G**3 *m1*m2*M/c**5 * (1+73./24*e**2+37./96*e**4)/(1-e**2)**(7./2)
+	return a4**(1./4)
 
 def Orbital_Period_Yrs(M,a):
 	return 2*np.pi/np.sqrt(G*M/a**3)/60/60/24/365
@@ -309,9 +315,25 @@ def Toomre_Goodman2003(M,tgrow,alpha,n=4):
 	RS = 2*G*M/c**2
 	return brentq(Toomre_aux,RS,1e10*RS,args=(M,tgrow,alpha,n))/RS
 
-def TGW_Haiman2009(M,r):
+def TGW_Haiman2009(M,r): #Doesn't agree with Peters 1964, don't know why
 	RS = 2*G*M/c**2
 	return (5./2) * RS/c * (r/RS)**4
+
+def TGW_Peters1964(M,r):
+	'''
+	Assumes equal-mass binary.
+	Output is in seconds.
+	'''
+	beta = 64./5 * G**3 * 0.5*M * 0.5*M * M / c**5
+	return 0.25*r**4/beta
+
+def TGW_Peters1964_iorbs(M,r):
+        '''
+        Assumes equal-mass binary. 
+        Output is in terms of initial orbits.
+        '''
+        beta = 64./5 * G**3 * 0.5*M * 0.5*M * M / c**5
+        return 0.25*r**4/beta / (365.*24*60*60) / Orbital_Period_Yrs(m0,l0)
 
 def Tvisc_Goodman2003(M,r,tgrow,alpha,n=4):
         Mach = Mach_Goodman2003(M,r,tgrow,alpha,n)
@@ -447,8 +469,8 @@ def Ts_Me2021(M,r,tgrow,alpha,n=8./3,gas_or_mixed='mixed'):
 	return qB**(-k) * tv
 
 def Taueff_Me2021(kap,kapes,M,r,tgrow,alpha,n=8./3,gas_or_mixed='mixed'):
-	tauscat = kapes*Surface_Density_Me2021(M,r,tgrow,0.1,8./3,gas_or_mixed)/2
-	tauabs  = kap *Surface_Density_Me2021(M,r,tgrow,0.1,8./3,gas_or_mixed)/2
+	tauscat = kapes*Surface_Density_Me2021(M,r,tgrow,alpha,n,gas_or_mixed)/2
+	tauabs  = kap  *Surface_Density_Me2021(M,r,tgrow,alpha,n,gas_or_mixed)/2
 	return np.sqrt(tauabs*(tauabs+tauscat))
 
 def Prad_Me2021(M,r,tgrow,alpha,n=8./3,gas_or_mixed='mixed'):
