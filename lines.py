@@ -73,7 +73,7 @@ def outward_unitnormal_vec_circle(x, y, x1, y1):
 
 #tested
 def bilinear_interp(data, xx, yy, x, y):
-    x, y = y, x #need to swap these, don't know why
+    #x, y = y, x #need to swap these? I thought so once, but no longer.
     il = xp.where(xx[:,0] < x)[0][-1]
     ih = xp.where(xx[:,0] > x)[0][0]
     jl = xp.where(yy[0,:] < y)[0][-1]

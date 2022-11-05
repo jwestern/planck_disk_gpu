@@ -47,12 +47,14 @@ def circle_unitnormal(x, y, xc, yc):
     mag  = xp.sqrt(xvec**2 + yvec**2)
     return xvec/mag, yvec/mag
 
+#tested
 def RHAT(xx, yy, xc, yc):
     xvec = xx - xc
     yvec = yy - yc
     mag  = xp.sqrt(xvec**2 + yvec**2)
     return xvec/mag, yvec/mag
 
+#tested
 def THETAHAT(xx, yy, xc, yc):
     xx2, yy2 = xx - xc, yy - yc
     xvec = -yy2
@@ -60,6 +62,7 @@ def THETAHAT(xx, yy, xc, yc):
     mag = xp.sqrt(xvec**2 + yvec**2)
     return xvec/mag, yvec/mag
 
+#tested
 def v_transform_to_corotating_frame(vx, vy, xx, yy):
     rr = xp.sqrt(xx**2 + yy**2)
     rhatx, rhaty = RHAT(xx, yy, 0.0, 0.0)
