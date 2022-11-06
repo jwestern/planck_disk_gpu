@@ -6,7 +6,7 @@ except ImportError:
 '''
 Note: when testing with matplotlib plots, use
 
-imshow(rho, extent=(-DR,DR,-DR,DR), origin='bottomleft')
+imshow(rho.T, extent=(-DR,DR,-DR,DR), origin='bottomleft')
 
 otherwise the x,y coordinates will be messed up.
 

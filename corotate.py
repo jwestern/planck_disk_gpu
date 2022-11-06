@@ -89,7 +89,7 @@ def project_along_bhs(vx, vy, x1, y1, x2, y2):
 def mdot_minidisk_separator(N, length, rho, vx, vy, x1, y1, x2, y2, xx, yy):
     vx, vy = v_transform_to_corotating_frame(vx, vy, xx, yy)
     momproj = project_along_bhs(rho*vx, rho*vy, x1, y1, x2, y2)
-    mom  = ROTATE( momproj.T, x1, y1, 1)
+    mom  = ROTATE( momproj.T, x1, y1, 1).T
     del rho, vx, vy, momproj
     xmd, ymd = minidisk_separator(N, length)
     dx = length/(N-1.0)
@@ -101,12 +101,25 @@ def mdot_minidisk_separator(N, length, rho, vx, vy, x1, y1, x2, y2, xx, yy):
     return np.trapz(AsNumpy(mom_md_p), dx=dx), np.trapz(AsNumpy(mom_md_m), dx=dx)
 
 def mdot_circle(N, rho, vx, vy, xc, yc, xc2, yc2, r, xx, yy, x1, y1):
-    dx = 2*xp.pi*r/(N-1.0)
+    dx = 2*xp.pi*r/N
     vx, vy = v_transform_to_corotating_frame(vx, vy, xx, yy)
     momproj = project_along_rhat(rho*vx, rho*vy, xx, yy, xc, yc)
-    mom = ROTATE( momproj.T, x1, y1, 1)
+    mom = ROTATE( momproj.T, x1, y1, 1).T
     del rho, vx, vy, momproj
     xcirc, ycirc = circle(N, xc2, yc2, r)
+    mom_circ = xp.array([lines.bilinear_interp(mom, xx, yy, xcirc[i], ycirc[i]) for i in range(N)])
+    mom_circ_p = mom_circ*1
+    mom_circ_m = mom_circ*1
+    mom_circ_p[xp.where(mom_circ_p<0)] = 0.0
+    mom_circ_m[xp.where(mom_circ_m>0)] = 0.0
+    return np.trapz(AsNumpy(mom_circ_p)*r, dx=dx), np.trapz(AsNumpy(mom_circ_m)*r, dx=dx)
+
+def mdot_centered_circle(N, rho, vx, vy, r, xx, yy):
+    dx = 2*xp.pi*r/N
+    momproj = project_along_rhat(rho*vx, rho*vy, xx, yy, 0.0, 0.0)
+    mom = momproj
+    del rho, vx, vy, momproj
+    xcirc, ycirc = circle(N, 0.0, 0.0, r)
     mom_circ = xp.array([lines.bilinear_interp(mom, xx, yy, xcirc[i], ycirc[i]) for i in range(N)])
     mom_circ_p = mom_circ*1
     mom_circ_m = mom_circ*1
