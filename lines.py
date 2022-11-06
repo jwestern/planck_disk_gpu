@@ -82,7 +82,8 @@ def bilinear_interp(data, xx, yy, x, y):
     hh = (xx[ih,jh] - x) * (yy[ih,jh] - y)
     lh = (x - xx[il,jh]) * (yy[il,jh] - y)
     hl = (xx[ih,jl] - x) * (y - yy[ih,jl])
-    return data[il,jl]*hh + data[ih,jh]*ll + data[il,jh]*hl + data[ih,jl]*lh
+    dx = xx[1,0]-xx[0,0]
+    return (data[il,jl]*hh + data[ih,jh]*ll + data[il,jh]*hl + data[ih,jl]*lh)/dx**2
 
 def project_normal_to_minidisk_separator(vx, vy, x1, y1, x2, y2):
     xhat, yhat = bh_separation_unitvec(x1, y1, x2, y2)
