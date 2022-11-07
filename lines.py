@@ -2,7 +2,6 @@ try:
     import cupy as xp
 except ImportError:
     import numpy as xp
-import pdb
 
 '''
 Note: when testing with matplotlib plots, use
@@ -74,7 +73,6 @@ def outward_unitnormal_vec_circle(x, y, x1, y1):
 
 #tested
 def bilinear_interp(data, xx, yy, x, y):
-    pdb.set_trace()
     dx = xx[1,0]-xx[0,0]
     il = xp.where(xx[:,0] < x)[0][-1]
     ih = xp.where(xx[:,0] > x)[0][0]
