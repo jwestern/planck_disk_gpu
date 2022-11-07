@@ -2,6 +2,7 @@ try:
     import cupy as xp
 except ImportError:
     import numpy as xp
+import pdb
 
 '''
 Note: when testing with matplotlib plots, use
@@ -73,17 +74,21 @@ def outward_unitnormal_vec_circle(x, y, x1, y1):
 
 #tested
 def bilinear_interp(data, xx, yy, x, y):
-    #x, y = y, x #need to swap these? I thought so once, but no longer.
+    pdb.set_trace()
+    dx = xx[1,0]-xx[0,0]
     il = xp.where(xx[:,0] < x)[0][-1]
     ih = xp.where(xx[:,0] > x)[0][0]
     jl = xp.where(yy[0,:] < y)[0][-1]
     jh = xp.where(yy[0,:] > y)[0][0]
-    ll = (x - xx[il,jl]) * (y - yy[il,jl])
-    hh = (xx[ih,jh] - x) * (yy[ih,jh] - y)
-    lh = (x - xx[il,jh]) * (yy[il,jh] - y)
-    hl = (xx[ih,jl] - x) * (y - yy[ih,jl])
-    dx = xx[1,0]-xx[0,0]
-    return (data[il,jl]*hh + data[ih,jh]*ll + data[il,jh]*hl + data[ih,jl]*lh)/dx**2
+    if ih-il > 1:
+        ih -= 1
+    if jh-jl > 1:
+        jh -= 1
+    ll = (x - xx[il,jl]) * (y - yy[il,jl]) / dx / dx
+    hh = (xx[ih,jh] - x) * (yy[ih,jh] - y) / dx / dx
+    lh = (x - xx[il,jh]) * (yy[il,jh] - y) / dx / dx
+    hl = (xx[ih,jl] - x) * (y - yy[ih,jl]) / dx / dx
+    return (data[il,jl]*hh + data[ih,jh]*ll + data[il,jh]*hl + data[ih,jl]*lh)
 
 def project_normal_to_minidisk_separator(vx, vy, x1, y1, x2, y2):
     xhat, yhat = bh_separation_unitvec(x1, y1, x2, y2)
