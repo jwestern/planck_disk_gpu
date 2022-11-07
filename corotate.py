@@ -69,7 +69,7 @@ def v_transform_to_corotating_frame(vx, vy, xx, yy):
     thetahatx, thetahaty = THETAHAT(xx, yy, 0.0, 0.0)
     vr = vx * rhatx + vy * rhaty
     vtheta = vx * thetahatx + vy * thetahaty
-    vtheta = vtheta - 1.0
+    vtheta = vtheta - 0.5
     xhatr, xhattheta = xx / rr, -yy / rr
     yhatr, yhattheta = yy / rr,  xx / rr
     return vr * xhatr + vtheta * xhattheta, vr * yhatr + vtheta * yhattheta
